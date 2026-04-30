@@ -1,0 +1,478 @@
+---
+title: "Meta-análisis: Suplementación en hipertrofia"
+author: "Rubén Gil"
+date: "2025-07-6"
+output: 
+  html_document:
+    theme: flatly
+    highlight: tango
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# 1. SetUp
+***
+
+Cargado de las librerías y de todos los datasets.
+
+```{r, message = FALSE, warning = FALSE}
+# Cargar librerías
+library(meta)
+library(metafor)
+library(dmetar)
+
+# Cargar datos
+
+  # Set de datos limpios ~ Variables categóricas
+analisisglobal <- read.csv("data/datos_limpios.csv", sep = ";")
+
+  # Es 'analisisgloblal' eliminando los outliers
+analisis_outliers <- read.csv("data/datos_outliers.csv", sep = ";")
+
+  # Es 'analisis_outliers' pero con las variables numéricas
+analisis_metarregresion <- read.csv("data/datos_metarregresion.csv", sep = ";")
+
+  # Es 'analisis_outliers' pero los suplementos han sido agrupados por categorías
+analisis_supp <- read.csv("data/datos_outliers_grp.csv", sep = ";")
+```
+
+# 2. Análisis del Efecto Global
+***
+
+Evaluación del impacto general de la suplementación sobre la masa libre de grasa (LMB).
+
+* Se utiliza el modelo de efectos aleatorios porque estimamos que hay un efecto diferente para cada estudio como fuente de variación adicional.
+
+```{r, fig.height = 8, fig.width = 10}
+# Cálculo del Meta-análisis de Diferencia de Medias (MD)
+MD <- metacont(
+  n.e = N_Sup,
+  mean.e = LMB_Suplemento,
+  sd.e = SD_Suplemento,
+  n.c = N_Con,
+  mean.c = LMB_Control,
+  sd.c = SD_Control,
+  data = analisisglobal,
+  studlab = paste(Autor, Year),
+  common = FALSE,
+  random = TRUE,
+  method.tau = "REML"
+)
+```
+
+## 2.1. Forest Plot
+***
+
+Cada estudio muestra la diferencia entre las medias de cada grupo dentro del estudio representada por el rombo rojo. La media global se representa
+por el rombo negro. Si el rombo se desplaza hacia la derecha, favorece la suplementación, y a la izquierda, al control.
+
+```{r, fig.height = 8, fig.width = 10}
+forest(MD,
+       comb.fixed = FALSE,
+       print.pval.Q = TRUE,
+       print.Q = TRUE,
+       layout = "RevMan5",
+       common = FALSE,
+       random = TRUE,
+       print.tau2 = TRUE,
+       test.overall.random = TRUE,
+       col.diamond = "black",
+       col.square = "red",
+       label.test.overall.random = TRUE,
+       label.right = "Favorece suplemento",
+       label.left = "Favorece control",
+       col.square.lines = "red",
+       spacing = 1,
+       xlim = c(-10, 20))
+```
+
+## 2.2. Interpretación del output
+***
+
+* **MD(95% CI)**: Muestra la diferencia entre las medias de ambos grupos en porcentaje, para un intervalo de confianza (CI) del 95%.
+* **I^2**: Mide la heterogeneidad entre los estudios. "Un I2 inferior al 40% sugiere una heterogeneidad baja o moderada, lo que da mayor robustez a la estimación del efecto global". Si es mayor, simplemente indica que los estudios son muy diferentes entre sí, no que el análisis sea erróneo.
+
+# 3. Detección de outliers
+***
+
+Un outlier es un resultado que está fuera del CI de la _mean difference_. Eliminarlos nos permite observar si el efecto observado es una tendencia general o depende excesivamente de resultados extremos.
+
+```{r, warning = FALSE, fig.height = 8, fig.width = 10}
+find.outliers(MD)
+
+# Forest plot de outliers
+forest(find.outliers(MD),
+       common = FALSE, 
+       print.pval.Q = TRUE,
+       print.Q = TRUE,
+       layout = "RevMan5", 
+       random = TRUE,
+       print.tau2 = FALSE,
+       test.overall.random = TRUE,
+       col.diamond = "black",
+       col.square = "red",
+       label.test.overall.random = TRUE,
+       label.right = "Favorece suplemento",
+       label.left = "Favorece control",
+       col.square.lines = "red", 
+       spacing = 1,
+       xlim = c(-5, 5))
+```
+
+# 4. Nuevo análisis, sin outliers
+***
+
+Una vez hemos eliminado los outliers, repetimos el análisis para ver los resultados 'reales'. La interpretación es la misma que para el anterior análisis.
+
+```{r, fig.height = 8, fig.width = 10}
+MD_SO <- metacont(
+  n.e = N_Sup,
+  mean.e = LMB_Suplemento,
+  sd.e = SD_Suplemento,
+  n.c = N_Con,
+  mean.c = LMB_Control,
+  sd.c = SD_Control,
+  data = analisis_outliers,
+  studlab = paste(Autor, Year),
+  common = FALSE,
+  random = TRUE,
+  method.tau = "REML"
+)
+
+forest(MD_SO,
+       comb.fixed = FALSE,
+       print.pval.Q = TRUE,
+       print.Q = TRUE,
+       layout = "RevMan5",
+       common = FALSE,
+       random = TRUE,
+       print.tau2 = TRUE,
+       test.overall.random = TRUE,
+       col.diamond = "black",
+       col.square = "red",
+       label.test.overall.random = TRUE,
+       label.right = "Favorece suplemento",
+       label.left = "Favorece control",
+       col.square.lines = "red",
+       spacing = 1,
+       xlim = c(-10, 15))
+```
+
+## 4.1. Comparación de modelos
+
+Una vez hemos hecho el análisis, con y sin outliers, podemos evaluar diferencias y ver si ha sido una decisión acertada:
+
+* **MD(95% CI)**: Aunque sigue estando desplazada hacia la suplementación, su efecto ahora es menor.
+* **I^2**: Ha disminuido a la mitad, por lo que podemos decir que esos artículos contribuían desproporcionadamente a la heterogeneidad, y la decisión de eliminarlos es correcta.
+
+
+# 5. Evaluación del sesgo de publicación
+***
+
+Queremos comprobar la ausencia de este sesgo en nuestros estudios. Este sesgo implica que hay más artículos 'a favor' de la suplementación, porque estudios con resultados neutros o negativos no se publican. Para ello tenemos 2 opciones:
+
+1. **Funnel plot**: Se busca que no haya asimetría para afirmar la ausencia de este sesgo.
+2. **Egger's test**: Es la forma matemática de confirmarlo. Si p > 0.05, descartamos el sesgo
+
+```{r, fig.show = 'hold', out.width = '50%'}
+# Funnel plot
+funnel(MD,bg = "white",col.random = "blue",cex = 2,studlab = TRUE)
+funnel(MD_SO,bg = "white",col.random = "blue",cex = 2,studlab = TRUE)
+
+# Test de Egger
+eggers.test (x=MD)
+eggers.test (x=MD_SO)
+```
+
+# 6. Evaluación por subgrupos
+***
+
+La idea es evaluar si alguna de las variables analizadas ayuda a explicar la heterogeneidad (si son o no moderadores del efecto). Las variables analizadas son:
+
+* Duración del estudio, edad, sexo, timing de la suplementación, tipo de suplemento y estado de entrenamiento de los participantes.
+
+El estudio de las variables devuelve los siguientes factores:
+
+* **MD(95% CI)**: Es la diferencia de medias entre el control y ese grupo concreto.
+* **p_value**: Acompaña a la MD e indica si esta es estadísticamente significativa (p<0.05).
+* **Chi^2**: Indica si hay diferencias entre los grupos. Si su p_valor < 0.05, los grupos son diferentes estadísticamente hablando.
+* **Forest Plot**: El forest plot se interpreta de la misma manera, pero los estudios están agrupados por categoría y cada una de ellas tiene su media como subtotal (también en negro).
+
+## 6.1. Análisis por sexo
+
+```{r, fig.height = 10, fig.width = 10}
+g_sex <- metacont(
+  n.e = N_Sup,
+  mean.e = LMB_Suplemento,
+  sd.e = SD_Suplemento,
+  n.c = N_Con,
+  mean.c = LMB_Control,
+  sd.c = SD_Control,
+  data = analisis_outliers,
+  studlab = paste(Autor, Year),
+  subgroup = Sexo,
+  common = FALSE,
+  random = TRUE,
+  method.tau = "REML"
+)
+
+forest(g_sex,
+       comb.fixed = FALSE,
+       print.pval.Q = TRUE,
+       print.Q = TRUE,
+       layout = "RevMan5",
+       common = FALSE,
+       random = TRUE,
+       print.tau2 = TRUE,
+       test.overall.random = TRUE,
+       col.diamond = "black",
+       col.square = "red",
+       label.test.overall.random = TRUE,
+       label.right = "Favorece suplemento",
+       label.left = "Favorece control",
+       col.square.lines = "red",
+       spacing = 1,
+       xlim = c(-10, 20))
+```
+
+## 6.2. Análisis por suplemento
+
+```{r, fig.height = 10, fig.width = 10}
+g_sup <- metacont(
+  n.e = N_Sup,
+  mean.e = LMB_Suplemento,
+  sd.e = SD_Suplemento,
+  n.c = N_Con,
+  mean.c = LMB_Control,
+  sd.c = SD_Control,
+  data = analisis_supp,
+  studlab = paste(Autor, Year),
+  subgroup = Suplemento,
+  common = FALSE,
+  random = TRUE,
+  method.tau = "REML"
+)
+
+forest(g_sup,
+       comb.fixed = FALSE,
+       print.pval.Q = TRUE,
+       print.Q = TRUE,
+       layout = "RevMan5",
+       common = FALSE,
+       random = TRUE,
+       print.tau2 = TRUE,
+       test.overall.random = TRUE,
+       col.diamond = "black",
+       col.square = "red",
+       label.test.overall.random = TRUE,
+       label.right = "Favorece suplemento",
+       label.left = "Favorece control",
+       col.square.lines = "red",
+       spacing = 1,
+       xlim = c(-10, 20))
+```
+
+## 6.3. Análisis por duración del estudio
+
+```{r, fig.height = 10, fig.width = 10}
+g_duracion <- metacont(
+  n.e = N_Sup,
+  mean.e = LMB_Suplemento,
+  sd.e = SD_Suplemento,
+  n.c = N_Con,
+  mean.c = LMB_Control,
+  sd.c = SD_Control,
+  data = analisis_outliers,
+  studlab = paste(Autor, Year),
+  subgroup = Duracion,
+  common = FALSE,
+  random = TRUE,
+  method.tau = "REML"
+)
+
+forest(g_duracion,
+       comb.fixed = FALSE,
+       print.pval.Q = TRUE,
+       print.Q = TRUE,
+       layout = "RevMan5",
+       common = FALSE,
+       random = TRUE,
+       print.tau2 = TRUE,
+       test.overall.random = TRUE,
+       col.diamond = "black",
+       col.square = "red",
+       label.test.overall.random = TRUE,
+       label.right = "Favorece suplemento",
+       label.left = "Favorece control",
+       col.square.lines = "red",
+       spacing = 1,
+       xlim = c(-10, 20))
+
+```
+
+
+## 6.4. Análisis por el timing de la suplementación
+
+```{r, fig.height = 10, fig.width = 10}
+g_timing <- metacont(
+  n.e = N_Sup,
+  mean.e = LMB_Suplemento,
+  sd.e = SD_Suplemento,
+  n.c = N_Con,
+  mean.c = LMB_Control,
+  sd.c = SD_Control,
+  data = analisis_outliers,
+  studlab = paste(Autor, Year),
+  subgroup = Momento_Toma,
+  common = FALSE,
+  random = TRUE,
+  method.tau = "REML"
+)
+
+forest(g_timing,
+       comb.fixed = FALSE,
+       print.pval.Q = TRUE,
+       print.Q = TRUE,
+       layout = "RevMan5",
+       common = FALSE,
+       random = TRUE,
+       print.tau2 = TRUE,
+       test.overall.random = TRUE,
+       col.diamond = "black",
+       col.square = "red",
+       label.test.overall.random = TRUE,
+       label.right = "Favorece suplemento",
+       label.left = "Favorece control",
+       col.square.lines = "red",
+       spacing = 1,
+       xlim = c(-10, 20))
+```
+
+## 6.5. Análisis por estado de entrenamiento
+
+```{r, fig.height = 10, fig.width = 10}
+g_trained <- metacont(
+  n.e = N_Sup,
+  mean.e = LMB_Suplemento,
+  sd.e = SD_Suplemento,
+  n.c = N_Con,
+  mean.c = LMB_Control,
+  sd.c = SD_Control,
+  data = analisis_outliers,
+  studlab = paste(Autor, Year),
+  subgroup = Estado_Fisico,
+  common = FALSE,
+  random = TRUE,
+  method.tau = "REML"
+)
+
+forest(g_trained,
+       comb.fixed = FALSE,
+       print.pval.Q = TRUE,
+       print.Q = TRUE,
+       layout = "RevMan5",
+       common = FALSE,
+       random = TRUE,
+       print.tau2 = TRUE,
+       test.overall.random = TRUE,
+       col.diamond = "black",
+       col.square = "red",
+       label.test.overall.random = TRUE,
+       label.right = "Favorece suplemento",
+       label.left = "Favorece control",
+       col.square.lines = "red",
+       spacing = 1,
+       xlim = c(-10, 20))
+```
+
+## 6.6. Análisis por edad
+
+```{r, fig.height = 10, fig.width = 10}
+g_edad <- metacont(
+  n.e = N_Sup,
+  mean.e = LMB_Suplemento,
+  sd.e = SD_Suplemento,
+  n.c = N_Con,
+  mean.c = LMB_Control,
+  sd.c = SD_Control,
+  data = analisis_outliers,
+  studlab = paste(Autor, Year),
+  subgroup = Edad,
+  common = FALSE,
+  random = TRUE,
+  method.tau = "REML"
+)
+
+forest(g_edad,
+       comb.fixed = FALSE,
+       print.pval.Q = TRUE,
+       print.Q = TRUE,
+       layout = "RevMan5",
+       common = FALSE,
+       random = TRUE,
+       print.tau2 = TRUE,
+       test.overall.random = TRUE,
+       col.diamond = "black",
+       col.square = "red",
+       label.test.overall.random = TRUE,
+       label.right = "Favorece suplemento",
+       label.left = "Favorece control",
+       col.square.lines = "red",
+       spacing = 1,
+       xlim = c(-10, 20))
+```
+
+# 7. Metarregresión: Análisis cuantitativo
+***
+
+La metarregresión busca analizar si existe correlación lineal entre una/varias variables con el efecto observado. Para ello, utilizamos las 2 variables continuas (edad y duración del experimento) en regresiones univariadas y luego una multivariada incluyendo todas las variables analizadas en el punto 6.
+
+El estudio de las variables devuelve los siguientes factores:
+
+* **QM**: Es el test de moderadores. Si su p_valor < 0.05 podemos afirmar que la variable explica parte del efecto observado.
+* **R^2**: Indica el % de la heterogeneidad inicial explica dicha variable.
+* **QE**: Indica la heterogeneidad residual que queda sin explicar.
+* **Coeficiente (95% CI)**: Indican cómo se relacionan el efecto y la/s variable/s. Si es positivo, son directamente proporcionales, si es negativo, inversamente proporcionales.
+
+```{r}
+MR <- metacont(
+  n.e = N_Sup,
+  mean.e = LMB_Suplemento,
+  sd.e = SD_Suplemento,
+  n.c = N_Con,
+  mean.c = LMB_Control,
+  sd.c = SD_Control,
+  data = analisis_metarregresion,
+  studlab = paste(Autor, Year),
+  common = FALSE,
+  random = TRUE,
+  method.tau = "REML"
+)
+```
+
+## 7.1. Metarregresión univariada por Edad
+
+```{r}
+MR_edad <- metareg(MR, ~Edad)
+summary(MR_edad)
+bubble(MR_edad, xlab = "Edad (años)", ylab = "Diferencia de medias")
+```
+
+## 7.2. Metarregresión univariada por Duración del estudio
+
+```{r}
+MR_duracion <- metareg(MR, ~Duracion)
+summary(MR_duracion)
+bubble(MR_duracion, xlab = "Duración (semanas)", ylab = "Diferencia de medias")
+```
+
+## 7.3. Metarregresión multivariada con los 6 factores
+
+```{r}
+MR_completa <- metareg(MR, ~ Edad + Duracion + Suplemento + Momento_Toma + Estado_Fisico + Sexo)
+summary(MR_completa)
+```
+
