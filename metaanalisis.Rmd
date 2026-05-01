@@ -1,7 +1,6 @@
 ---
-title: "Meta-análisis: Suplementación en hipertrofia"
+title: "Meta-análisis: Suplementación en hipertrofia bajo entrenamiento de resistencia"
 author: "Rubén Gil"
-date: "2025-07-6"
 output: 
   html_document:
     theme: flatly

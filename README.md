@@ -13,7 +13,9 @@ Después se procedió a hacer el metaanálisis por mean difference (MD)
 * **metaanalisis.Rmd**: Cuaderno en el que se hizo el análisis.
 
 ## ¿Cómo ver el reporte?
-Descarga el archivo `metaanalisis.html` de la carpeta `/output` y ábrelo en cualquier navegador.
+Descarga el archivo `metaanalisis.html` y ábrelo en cualquier navegador o visualízalo directamente aquí:
+[text](https://rubengil-dev.github.io/metaanalisis-suplementacion-hipertrofia/)
+
 En el se explican por encima todos los conceptos estadísticos necesarios para entender el metaanálisis. Pero si no tienes conocimientos sobre el tema,
 lee "Entiende el metaanálisis".
 
