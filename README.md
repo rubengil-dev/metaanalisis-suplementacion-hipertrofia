@@ -8,9 +8,9 @@ Después se procedió a hacer el metaanálisis por mean difference (MD)
 # Información del proyecto
 
 ## Estructura
-* **/data**: Contiene todos los .csv que se usaron durante el análisis.
-* **/output**: Contiene todos los .png generados por R y el HTML para su visualización completa.
-* **metaanalisis.Rmd**: Cuaderno en el que se hizo el análisis.
+* `/data`: Contiene todos los .csv que se usaron durante el análisis.
+* `/output`: Contiene todos los .png generados por R.
+* `metaanalisis.Rmd`: Cuaderno en el que se hizo el análisis.
 
 ## ¿Cómo ver el reporte?
 Descarga el archivo `metaanalisis.html` y ábrelo en cualquier navegador o visualízalo directamente aquí:
